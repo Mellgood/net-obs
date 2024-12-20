@@ -1,0 +1,103 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+*.egg-info/
+*.egg
+
+# Virtual environments
+env/
+venv/
+ENV/
+.venv/
+*.env
+*.venv
+
+# Pipenv
+Pipfile
+Pipfile.lock
+
+# Poetry
+poetry.lock
+
+# pyenv
+.python-version
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+*.egg
+.eggs/
+*.egg-info/
+.installed.cfg
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Pytest cache
+.pytest_cache/
+
+# MyPy cache
+.mypy_cache/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# PyCharm specific files
+.idea/
+*.ipr
+*.iws
+out/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# macOS specific files
+.DS_Store
+
+# Logs and databases
+*.log
+*.csv
+*.sqlite
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*.swo
+*.orig
+
+# Docker
+*.dockerignore
+docker-compose.override.yml
+
+# Environment variables
+.env
+.env.*
+
+# Ignore secrets
+secrets.json
+secrets.*.json
