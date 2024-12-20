@@ -1,0 +1,43 @@
+version: '3.8'
+
+# Define network
+networks:
+  myDockerNet:
+    driver: bridge
+
+# Services (containers)
+services:
+  server-tcp:
+    build: .
+    container_name: server-tcp
+    networks:
+      myDockerNet:
+        aliases:
+          - server-tcp.local
+    command: ["iperf3", "-s"]
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+  server-udp:
+    build: .
+    container_name: server-udp
+    networks:
+      myDockerNet:
+        aliases:
+          - server-udp.local
+    command: ["iperf3", "-s", "-p 5002"]
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+  client:
+    build: .
+    container_name: client
+    networks:
+      myDockerNet:
+        aliases:
+          - client.local
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+
