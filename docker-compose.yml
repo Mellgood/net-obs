@@ -1,34 +1,25 @@
 version: '3.8'
 
-# Define network
 networks:
   myDockerNet:
     driver: bridge
 
-# Services (containers)
 services:
-  server-tcp:
+
+  #SERVER CON TCP E UDP#
+  iperf3-server:
     build: .
-    container_name: server-tcp
+    container_name: iperf3-server
     networks:
       myDockerNet:
         aliases:
-          - server-tcp.local
-    command: ["iperf3", "-s"]
+          - iperf3-server.local
+    command: >
+      /bin/sh -c "iperf3 -s -p 5021 && iperf3 -s -p 5022"
     dns:
       - 8.8.8.8
       - 8.8.4.4
-  server-udp:
-    build: .
-    container_name: server-udp
-    networks:
-      myDockerNet:
-        aliases:
-          - server-udp.local
-    command: ["iperf3", "-s", "-p 5002"]
-    dns:
-      - 8.8.8.8
-      - 8.8.4.4
+
   client:
     build: .
     container_name: client
@@ -36,8 +27,67 @@ services:
       myDockerNet:
         aliases:
           - client.local
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./src:/app  # Monta la directory locale come volume
+    working_dir: /app  # Imposta la directory di 'lavoro'
+
     dns:
       - 8.8.8.8
       - 8.8.4.4
 
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: phpmyadmin_container
+    restart: always
+    environment:
+      PMA_HOST: mysql.local
+      PMA_PORT: 3306
+      MYSQL_USER: user
+      MYSQL_PASSWORD: test
+      MYSQL_ROOT_PASSWORD: test
+    ports:
+      - "8080:80"
+    networks:
+      myDockerNet:
+        aliases:
+          - phpmyadmin.local
 
+  database:
+    image: mysql:8.0
+    container_name: mysql_container
+    restart: always
+    environment:
+      MYSQL_DATABASE: network_performance
+      MYSQL_USER: user
+      MYSQL_PASSWORD: test
+      MYSQL_ROOT_USER: root
+      MYSQL_ROOT_PASSWORD: root
+
+    ports:
+      - "3306:3306"
+    networks:
+      myDockerNet:
+        aliases:
+          - mysql.local
+    volumes:
+      - ./dump:/docker-entrypoint-initdb.d
+        - persistent:/var/lib/mysql
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana_container
+    restart: always
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    ports:
+      - "3000:3000"
+    networks:
+      myDockerNet:
+        aliases:
+          - grafana.local
+
+volumes:
+  mysql_data:
