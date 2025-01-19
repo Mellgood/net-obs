@@ -10,12 +10,13 @@ services:
   iperf3-server:
     build: .
     container_name: iperf3-server
+    hostname: iperf3-server
     networks:
       myDockerNet:
         aliases:
           - iperf3-server.local
     command: >
-      /bin/sh -c "iperf3 -s -p 5021 && iperf3 -s -p 5022"
+      /bin/sh -c "iperf3 -s -p 5021 & iperf3 -s -p 5022 & wait"
     dns:
       - 8.8.8.8
       - 8.8.4.4
@@ -23,6 +24,7 @@ services:
   client:
     build: .
     container_name: client
+    hostname: client
     networks:
       myDockerNet:
         aliases:
@@ -57,6 +59,7 @@ services:
   database:
     image: mysql:8.0
     container_name: mysql_container
+    hostname: database
     restart: always
     environment:
       MYSQL_DATABASE: network_performance

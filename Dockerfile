@@ -13,11 +13,12 @@ RUN apt-get update && apt-get install -y \
     net-tools \
     python3 \
     python3-pip \
+     \
     #python3 -m pip install mysql-connector-python \
     && rm -rf /var/lib/apt/lists/*
 
-RUN python3 -m pip install mysql-connector-python
-
+RUN python3 -m pip install mysql-connector-python requests
+ENV PYTHONUNBUFFERED=1
 #RUN python3 --version
 # Imposta la directory di lavoro
 WORKDIR /app
