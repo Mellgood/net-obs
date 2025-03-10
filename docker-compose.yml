@@ -15,6 +15,9 @@ services:
       myDockerNet:
         aliases:
           - iperf3-server.local
+    volumes:
+      - ./src:/app  # Monta la directory locale come volume
+    working_dir: /app  # Imposta la directory di 'lavoro'
     command: >
       /bin/sh -c "iperf3 -s -p 5021 & iperf3 -s -p 5022 & wait"
     dns:
@@ -38,6 +41,11 @@ services:
     dns:
       - 8.8.8.8
       - 8.8.4.4
+    expose:
+      - "5000/udp"  # Espone la porta UDP 5000 internamente nel network Docker
+
+    ports:
+      - "5000:5000/udp"
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin:latest

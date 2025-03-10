@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y \
     #python3 -m pip install mysql-connector-python \
     && rm -rf /var/lib/apt/lists/*
 
-RUN python3 -m pip install mysql-connector-python requests
+RUN python3 -m pip install mysql-connector-python requests python-socketio
 ENV PYTHONUNBUFFERED=1
 #RUN python3 --version
 # Imposta la directory di lavoro

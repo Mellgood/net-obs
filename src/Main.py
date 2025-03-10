@@ -17,7 +17,7 @@ SERVER_IP = "iperf3-server"
 TCP_PORT = 5021
 UDP_PORT = 5022
 BANDWIDTH = "100M"  # Banda per i test UDP/TCP
-CONNECTIONS = 10  # Numero di connessioni (singola o multipla)
+CONNECTIONS = 1  # Numero di connessioni (singola o multipla)
 
 # Funzione per creare le tabelle
 def create_tables():
@@ -34,6 +34,17 @@ def create_tables():
             timestamp DATETIME
         )
     """)
+
+    cursor.execute("""
+            CREATE TABLE IF NOT EXISTS jitter_latency_empty_channel (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                jitter_ms FLOAT,
+                latency_ms FLOAT,
+                public_ip VARCHAR(15),
+                private_ip VARCHAR(15),
+                timestamp DATETIME
+            )
+        """)
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS tcp_metrics (
@@ -63,6 +74,24 @@ def create_tables():
     cursor.close()
     connection.close()
 
+#Funzioni per verificare ip pubblico e privato
+def get_public_ip():
+    try:
+        response = requests.get("https://api64.ipify.org?format=json")
+        public_ip = response.json()["ip"]
+    except Exception:
+        public_ip = "Impossibile determinare l'IP pubblico"
+    return public_ip
+
+def get_private_ip():
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        try:
+            s.connect(("8.8.8.8", 80))  # Si connette a un DNS pubblico di Google
+            private_ip = s.getsockname()[0]
+        except Exception:
+            private_ip = "Impossibile determinare l'IP privato"
+    return private_ip
+
 # Funzione per eseguire iperf e ottenere risultati di jitter e latenza
 def run_jitter_latency():
     command = ["iperf3", "-u", "-c", SERVER_IP, "-p", str(UDP_PORT), "-J", "-b", BANDWIDTH]
@@ -75,10 +104,43 @@ def run_jitter_latency():
     try:
         data = json.loads(result.stdout)
         jitter = data["end"]["sum"]["jitter_ms"]
-        latency = data["end"]["sum"]["seconds"] * 1000  # Convertito in millisecondi
+        latency = data["end"]["sum"]["seconds"] #/ 1000  # Convertito in msecondi
         return {"jitter": jitter, "latency": latency}
     except (json.JSONDecodeError, KeyError):
         print("Errore nel parsing dei risultati di jitter e latenza.")
+        return None
+#Funzione per ottenere jitter e latenza con il canale vuoto
+def measure_empty_channel_ping(server_ip=SERVER_IP, count=10):
+    """
+    Misura la latenza e il jitter a canale scarico utilizzando il ping.
+    :param server_ip: Indirizzo IP del server (default: SERVER_IP)
+    :param count: Numero di pacchetti da inviare
+    :return: Dizionario con latenza media e jitter, oppure None in caso di errore
+    """
+    try:
+        # Esegui il ping verso il server specificato
+        command = ["ping", "-c", str(count), server_ip]
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+        if result.returncode != 0:
+            print(f"Errore durante il ping verso {server_ip}: {result.stderr}")
+            return None
+        # Estrae la latenza
+        lines = result.stdout.split("\n")
+        latencies = []
+        for line in lines:
+            if "time=" in line:
+                time_value = float(line.split("time=")[1].split(" ")[0])
+                latencies.append(time_value)
+        if not latencies:
+            print("Nessuna latenza rilevata.")
+            return None
+        # Calcola latenza media e jitter
+        avg_latency = sum(latencies) / len(latencies)
+        jitter = max(latencies) - min(latencies)
+        return {"latency": avg_latency, "jitter": jitter}
+    except Exception as e:
+        print(f"Errore durante la misurazione del ping: {e}")
         return None
 
 # Funzione per eseguire iperf e ottenere risultati di TCP o UDP
@@ -115,7 +177,7 @@ def run_iperf(test_type):
 
     return results
 
-# Funzione per salvare i dati nel database
+# Funzioni per salvare i dati nel database
 def save_to_db(cursor, table, data, ip_public, ip_private):
     query = f"""
         INSERT INTO {table} (upload_speed_mbps, download_speed_mbps, connections, public_ip, private_ip, timestamp)
@@ -123,29 +185,19 @@ def save_to_db(cursor, table, data, ip_public, ip_private):
     """
     cursor.execute(query, (data["upload_speed"], data["download_speed"], CONNECTIONS, ip_public, ip_private))
 
+def save_empty_channel_data(cursor, data, ip_public, ip_private):
+    query = """
+        INSERT INTO jitter_latency_empty_channel(jitter_ms, latency_ms, public_ip, private_ip, timestamp)
+        VALUES (%s, %s, %s, %s, NOW())
+    """
+    cursor.execute(query, (data["jitter"], data["latency"], ip_public, ip_private))
+
 def save_jitter_latency(cursor, data, ip_public, ip_private):
     query = """
         INSERT INTO jitter_latency (jitter_ms, latency_ms, public_ip, private_ip, timestamp)
         VALUES (%s, %s, %s, %s, NOW())
     """
     cursor.execute(query, (data["jitter"], data["latency"], ip_public, ip_private))
-
-def get_public_ip():
-    try:
-        response = requests.get("https://api64.ipify.org?format=json")
-        public_ip = response.json()["ip"]
-    except Exception:
-        public_ip = "Impossibile determinare l'IP pubblico"
-    return public_ip
-
-def get_private_ip():
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-        try:
-            s.connect(("8.8.8.8", 80))  # Si connette a un DNS pubblico di Google
-            private_ip = s.getsockname()[0]
-        except Exception:
-            private_ip = "Impossibile determinare l'IP privato"
-    return private_ip
 
 # Funzione principale
 def log_metrics():
@@ -158,9 +210,13 @@ def log_metrics():
         ip_public = ip_public.strip()
         ip_private = get_private_ip()
         ip_private = ip_private.strip()
-        #print(ip_public)
-        #print(ip_private)
         # Misurazione Jitter e Latenza
+
+        print("Misurazione jitter e latenza a canale scarico....")
+        misura=measure_empty_channel_ping()
+        if misura:
+            save_empty_channel_data(cursor, misura, ip_public, ip_private)
+
         print("Misurazione jitter e latenza...")
         jitter_latency_data = run_jitter_latency()
         if jitter_latency_data:
