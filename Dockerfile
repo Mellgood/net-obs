@@ -1,30 +1,52 @@
-# Dockerfile
+# Dockerfile per container client con tutte le dipendenze
 FROM ubuntu:22.04
-
-# Install basic utilities, iperf3, and network tools
-RUN apt-get update && apt-get install -y \
+# 1. Configurazione repository e pacchetti base
+RUN sed -i 's|http://archive.ubuntu.com|http://it.archive.ubuntu.com|g' /etc/apt/sources.list && \
+    apt-get update -qy && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    tshark \
+    wireshark-common \
+    python3 \
+    python3-pip \
+    python3-numpy \
     nano \
-    vim \
     iputils-ping \
     dnsutils \
     curl \
     iperf3 \
     iproute2 \
     net-tools \
-    python3 \
-    python3-pip \
-     \
-    #python3 -m pip install mysql-connector-python \
+    ntp \
     && rm -rf /var/lib/apt/lists/*
 
-RUN python3 -m pip install mysql-connector-python requests python-socketio
+# 2. Configurazione Wireshark
+RUN echo "wireshark-common wireshark-common/install-setuid boolean true" | debconf-set-selections && \
+    dpkg-reconfigure -f noninteractive wireshark-common && \
+    usermod -aG wireshark root
+
+# 3. Installazione dipendenze Python
+RUN python3 -m pip install --no-cache-dir \
+    mysql-connector-python \
+    requests \
+    python-socketio \
+    pyshark \
+    numpy \
+    ntplib
+
+# 4. Variabili d'ambiente
 ENV PYTHONUNBUFFERED=1
-#RUN python3 --version
-# Imposta la directory di lavoro
 WORKDIR /app
 
-# Copia i file dalla directory locale src nel container
+# 5. Copia gli script
 COPY ./src/ .
 
-# Comando di default per eseguire il tuo script Python
-#CMD ["python3", "main.py"]
+# 6. Permessi aggiuntivi
+RUN chmod +x /app/LatencyLevel2_Client.py
+
+# 7. Permessi necessari per dumpcap
+RUN apt-get update && \
+    apt-get install -y libcap2-bin && \
+    chmod +x /usr/bin/dumpcap && \
+    chgrp wireshark /usr/bin/dumpcap && \
+    chmod 750 /usr/bin/dumpcap && \
+    setcap cap_net_raw,cap_net_admin=eip /usr/bin/dumpcap

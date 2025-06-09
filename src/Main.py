@@ -13,9 +13,9 @@ DB_CONFIG = {
     "database": "network_performance"
 }
 # IP del server iperf3
-SERVER_IP = "iperf3-server"
-TCP_PORT = 5021
-UDP_PORT = 5022
+SERVER_IP = "server"
+TCP_PORT = 5092
+UDP_PORT = 5093
 BANDWIDTH = "100M"  # Banda per i test UDP/TCP
 CONNECTIONS = 1  # Numero di connessioni (singola o multipla)
 
@@ -23,7 +23,6 @@ CONNECTIONS = 1  # Numero di connessioni (singola o multipla)
 def create_tables():
     connection = mysql.connector.connect(**DB_CONFIG)
     cursor = connection.cursor()
-
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS jitter_latency (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -45,7 +44,6 @@ def create_tables():
                 timestamp DATETIME
             )
         """)
-
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS tcp_metrics (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -57,7 +55,6 @@ def create_tables():
             timestamp DATETIME
         )
     """)
-
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS udp_metrics (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -69,7 +66,6 @@ def create_tables():
             timestamp DATETIME
         )
     """)
-
     connection.commit()
     cursor.close()
     connection.close()
@@ -93,22 +89,6 @@ def get_private_ip():
     return private_ip
 
 # Funzione per eseguire iperf e ottenere risultati di jitter e latenza
-def run_jitter_latency():
-    command = ["iperf3", "-u", "-c", SERVER_IP, "-p", str(UDP_PORT), "-J", "-b", BANDWIDTH]
-
-    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    if result.returncode != 0:
-        print(f"Errore durante iperf3 per jitter e latenza: {result.stderr}")
-        return None
-
-    try:
-        data = json.loads(result.stdout)
-        jitter = data["end"]["sum"]["jitter_ms"]
-        latency = data["end"]["sum"]["seconds"] #/ 1000  # Convertito in msecondi
-        return {"jitter": jitter, "latency": latency}
-    except (json.JSONDecodeError, KeyError):
-        print("Errore nel parsing dei risultati di jitter e latenza.")
-        return None
 #Funzione per ottenere jitter e latenza con il canale vuoto
 def measure_empty_channel_ping(server_ip=SERVER_IP, count=10):
     """
@@ -212,15 +192,10 @@ def log_metrics():
         ip_private = ip_private.strip()
         # Misurazione Jitter e Latenza
 
-        print("Misurazione jitter e latenza a canale scarico....")
+        print("Misurazione ping a canale scarico....")
         misura=measure_empty_channel_ping()
         if misura:
             save_empty_channel_data(cursor, misura, ip_public, ip_private)
-
-        print("Misurazione jitter e latenza...")
-        jitter_latency_data = run_jitter_latency()
-        if jitter_latency_data:
-            save_jitter_latency(cursor, jitter_latency_data, ip_public, ip_private)
 
         # Misurazione TCP
         print("Misurazione TCP...")
