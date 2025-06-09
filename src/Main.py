@@ -3,6 +3,7 @@ import json
 import mysql.connector
 import requests
 import socket
+import os
 
 # Configurazione del database
 DB_CONFIG = {
@@ -12,8 +13,9 @@ DB_CONFIG = {
     "password": "test",
     "database": "network_performance"
 }
-# IP del server iperf3
-SERVER_IP = "server"
+IP=socket.gethostbyname('server')
+# Configurazione
+SERVER_IP = os.getenv('SERVER_IP', IP)
 TCP_PORT = 5092
 UDP_PORT = 5093
 BANDWIDTH = "100M"  # Banda per i test UDP/TCP

@@ -19,6 +19,8 @@ RUN sed -i 's|http://archive.ubuntu.com|http://it.archive.ubuntu.com|g' /etc/apt
     ntp \
     && rm -rf /var/lib/apt/lists/*
 
+#ENV IP =
+
 # 2. Configurazione Wireshark
 RUN echo "wireshark-common wireshark-common/install-setuid boolean true" | debconf-set-selections && \
     dpkg-reconfigure -f noninteractive wireshark-common && \
