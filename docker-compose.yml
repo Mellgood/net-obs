@@ -1,43 +1,140 @@
 version: '3.8'
 
-# Define network
 networks:
   myDockerNet:
     driver: bridge
 
-# Services (containers)
 services:
-  server-tcp:
+
+  #SERVER CON TCP E UDP#
+  server:
     build: .
-    container_name: server-tcp
+    container_name: server
+    hostname: server
     networks:
       myDockerNet:
         aliases:
-          - server-tcp.local
-    command: ["iperf3", "-s"]
+          - server.local
+    volumes:
+      - ./src:/app  # Monta la directory locale come volume
+    working_dir: /app  # Imposta la directory di 'lavoro'
+    command: >
+      /bin/sh -c "iperf3 -s -p 5092 & iperf3 -s -p 5093 & wait"
     dns:
       - 8.8.8.8
       - 8.8.4.4
-  server-udp:
-    build: .
-    container_name: server-udp
-    networks:
-      myDockerNet:
-        aliases:
-          - server-udp.local
-    command: ["iperf3", "-s", "-p 5002"]
-    dns:
-      - 8.8.8.8
-      - 8.8.4.4
+    expose:
+      - "5052/udp"      # Level2Lat..
+      - "5053/tcp"
+      - "5062/udp"      # Client/Server SO
+      - "5063/tcp"
+      - "5072/udp"      #Raw Socket Latency
+      - "5073/tcp"
+      - "5082/udp"      #Raw Socket RTT
+      - "5083/tcp"
+      - "5092/udp"      #Main
+      - "5093/tcp"
+    ports:
+      - "5052:5052/udp"  # Mappa porta UDP 5051 host -> container
+      - "5053:5052/tcp"  # Mappa porta TCP 5051 host -> container
+      - "5062:5062/udp"
+      - "5063:5063/tcp"
+      - "5072:5072/udp"  #Raw Socket Latency
+      - "5073:5073/tcp"
+      - "5082:5082/udp"
+      - "5083:5083/tcp"
+      - "5092:5092/udp"
+      - "5093:5093/tcp"
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
   client:
     build: .
     container_name: client
+    hostname: client
+    environment:
+      - SERVER_IP=server  # oppure l'IP pubblico se fuori da Docker
     networks:
       myDockerNet:
         aliases:
           - client.local
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./src:/app  # Monta la directory locale come volume
+    working_dir: /app  # Imposta la directory di 'lavoro'
     dns:
       - 8.8.8.8
       - 8.8.4.4
+    expose:
+      - "5000/udp"      # Espone la porta UDP 5000 nel network Docker
+      - "5051/udp"      # Espone la porta UDP 5051 nel network Docker
+      - "5051/tcp"      # Espone la porta TCP 5051 nel network Docker
+      - "5061/tcp"
 
+    ports:
+      - "5000:5000/udp"
+      - "5051:5051/udp"  # Mappa porta UDP 5051 host -> container
+      - "5051:5051/tcp"  # Mappa porta TCP 5051 host -> container
+      - "5061:5061/tcp"
+      - "5061:5061/udp" #client/serverSO
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
 
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: phpmyadmin_container
+    restart: always
+    environment:
+      PMA_HOST: mysql.local
+      PMA_PORT: 3306
+      MYSQL_USER: user
+      MYSQL_PASSWORD: test
+      MYSQL_ROOT_PASSWORD: test
+    ports:
+      - "8080:80"
+    networks:
+      myDockerNet:
+        aliases:
+          - phpmyadmin.local
+
+  database:
+    image: mysql:8.0
+    container_name: mysql_container
+    hostname: database
+    restart: always
+    environment:
+      MYSQL_DATABASE: network_performance
+      MYSQL_USER: user
+      MYSQL_PASSWORD: test
+      MYSQL_ROOT_USER: root
+      MYSQL_ROOT_PASSWORD: root
+
+    ports:
+      - "3306:3306"
+    networks:
+      myDockerNet:
+        aliases:
+          - mysql.local
+    volumes:
+      - ./dump:/docker-entrypoint-initdb.d
+        - persistent:/var/lib/mysql
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana_container
+    restart: always
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    ports:
+      - "3000:3000"
+    networks:
+      myDockerNet:
+        aliases:
+          - grafana.local
+
+volumes:
+  mysql_data:
